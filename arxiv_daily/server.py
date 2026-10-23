@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from . import DIGESTS, ROOT, gitops, memory, obsidian, zotero
+from . import DATA, DIGESTS, gitops, memory, obsidian, zotero
 
 log = logging.getLogger("arxiv_daily")
 _write_lock = threading.Lock()
@@ -24,7 +24,7 @@ def page_url(cfg: dict, page: Path) -> str:
     """http:// URL for a digest page if the helper is up, else a file:// URI."""
     try:
         urllib.request.urlopen(base_url(cfg) + "/api/state", timeout=1).close()
-        return f"{base_url(cfg)}/{page.relative_to(ROOT).as_posix()}"
+        return f"{base_url(cfg)}/{page.relative_to(DATA).as_posix()}"
     except Exception:
         return page.resolve().as_uri()
 
@@ -71,8 +71,8 @@ def make_handler(cfg: dict):
                 return self._send(302, b"", "text/plain", {"Location": target})
             if path == "/api/state":
                 return self._json(200, _state())
-            file = (ROOT / path.lstrip("/")).resolve()
-            if not any(file.is_relative_to(ROOT / d) for d in SERVED_DIRS) or not file.is_file():
+            file = (DATA / path.lstrip("/")).resolve()
+            if not any(file.is_relative_to(DATA / d) for d in SERVED_DIRS) or not file.is_file():
                 return self._send(404, b"not found", "text/plain")
             ctype = "text/plain; charset=utf-8" if file.suffix == ".md" else \
                 (mimetypes.guess_type(file.name)[0] or "application/octet-stream") + "; charset=utf-8"
@@ -109,8 +109,17 @@ def make_handler(cfg: dict):
     return Handler
 
 
+def _pull_loop(minutes: int = 15):
+    """Pick up digests the GitHub Action pushed to the data repo."""
+    while True:
+        gitops.sync()
+        threading.Event().wait(minutes * 60)
+
+
 def serve(cfg: dict):
     port = cfg["server"]["port"]
+    if gitops.has_remote():
+        threading.Thread(target=_pull_loop, daemon=True).start()
     httpd = ThreadingHTTPServer(("127.0.0.1", port), make_handler(cfg))
     log.info("serving digests at %s", base_url(cfg))
     httpd.serve_forever()

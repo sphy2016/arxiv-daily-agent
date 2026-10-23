@@ -2,6 +2,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
@@ -14,6 +15,13 @@ from .read import read_paper, score
 
 log = logging.getLogger("arxiv_daily")
 SEEN = STATE / "seen.json"
+
+
+def _digest_link(cfg, page, day) -> str:
+    repo = os.environ.get("GITHUB_REPOSITORY")  # set inside GitHub Actions: link to the file in the private repo
+    if repo:
+        return f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{repo}/blob/main/digests/{day}.md"
+    return server.page_url(cfg, page)
 
 
 def _setup_logging():
@@ -100,7 +108,7 @@ def cmd_run(args, cfg):
 
     if cfg["notify"]["enabled"] and (read or flagged):
         top = read[0][0].title if read else flagged[0][0].title
-        notify(f"arXiv: {len(read)} must-read, {len(flagged)} to skim", top[:180], server.page_url(cfg, digest))
+        notify(f"arXiv: {len(read)} must-read, {len(flagged)} to skim", top[:180], _digest_link(cfg, digest, day))
 
 
 def cmd_fb(args, cfg):
@@ -169,6 +177,10 @@ def cmd_llm_test(args, cfg):
     print("OK")
 
 
+def cmd_sync(args, cfg):
+    print("synced" if gitops.sync() else "sync failed (see logs)")
+
+
 def cmd_status(args, cfg):
     p = memory.load_profile()
     fb = memory.load_feedback()
@@ -194,6 +206,7 @@ def main():
     o = sub.add_parser("obsidian", help="write the Obsidian note for a paper: obsidian <id>")
     o.add_argument("id")
     sub.add_parser("llm-test", help="check the LLM endpoint, key and model names")
+    sub.add_parser("sync", help="pull/push the data repo (digests from GitHub Actions, your feedback)")
     sub.add_parser("status")
     args = ap.parse_args()
 
@@ -201,7 +214,7 @@ def main():
     cfg = load_config()
     try:
         {"run": cmd_run, "fb": cmd_fb, "interest": cmd_interest,
-         "consolidate": cmd_consolidate, "status": cmd_status, "zotero": cmd_zotero, "serve": cmd_serve, "obsidian": cmd_obsidian, "llm-test": cmd_llm_test}[args.cmd](args, cfg)
+         "consolidate": cmd_consolidate, "status": cmd_status, "zotero": cmd_zotero, "serve": cmd_serve, "obsidian": cmd_obsidian, "llm-test": cmd_llm_test, "sync": cmd_sync}[args.cmd](args, cfg)
     except Exception as e:
         log.exception("%s failed", args.cmd)
         if args.cmd == "run" and cfg["notify"]["enabled"]:

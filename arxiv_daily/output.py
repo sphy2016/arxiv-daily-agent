@@ -5,7 +5,7 @@ from dataclasses import asdict
 from datetime import date
 from pathlib import Path
 
-from . import DIGESTS, PAPERS, ROOT
+from . import DATA, DIGESTS, PAPERS
 from .fetch import Paper
 
 
@@ -96,7 +96,7 @@ def write_digest(day: date, n_total: int, n_cands: int, read: list[tuple[Paper, 
     # Structured sidecar: the source for the HTML page (arxiv_daily/html.py).
     pj = lambda p: {k: v for k, v in asdict(p).items() if k not in ("kw_score", "kw_hits")}
     data = {"date": day.isoformat(), "n_total": n_total, "n_cands": n_cands,
-            "read": [{"paper": pj(p), "score": s, "note": n, "note_path": str(np.relative_to(ROOT))}
+            "read": [{"paper": pj(p), "score": s, "note": n, "note_path": str(np.relative_to(DATA))}
                      for p, s, n, np in read],
             "flagged": [{"paper": pj(p), "score": s} for p, s in flagged],
             "rest": [{"paper": pj(p), "score": s} for p, s in rest]}

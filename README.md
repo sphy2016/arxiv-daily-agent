@@ -78,8 +78,9 @@ $EDITOR config.local.toml        # e.g. [obsidian] enabled = true, vault = "~/Ob
 ./run.sh run --dry-run           # shows keyword candidates only: no LLM calls, nothing written
 ./run.sh                         # full run: score, read, write, commit, notify
 
-# 3. Automate (daily at 12:00 + the always-on local page server)
+# 3. Automate (weekdays after arXiv updates, + the always-on local page server)
 ./launchd/install.sh             # remove with: ./launchd/install.sh --uninstall
+#    or run it on GitHub instead: see "Run it on GitHub Actions" below
 ```
 
 ### Two repos, one folder
@@ -92,6 +93,31 @@ own private remote to it if you want a backup:
 ./data-git remote add origin <your-private-repo-url> && ./data-git push -u origin main
 ```
 
+## Run it on GitHub Actions (instead of your Mac)
+The daily run can happen on GitHub's servers, so it no longer depends on your Mac being awake. The workflow lives in
+your **private data repo**, checks out this public code next to it, runs the pipeline, and pushes the results back.
+Your Mac then pulls them for the local page, Zotero and Obsidian (those need your Mac).
+
+1. Create an empty **private** repo on GitHub (e.g. `arxiv-daily-data`).
+2. Copy `examples/github-action/daily.yml` to `.github/workflows/daily.yml` in it, and put your GitHub user name in
+   the `repository:` line.
+3. In that repo: *Settings > Secrets and variables > Actions > New repository secret*:
+   `DEEPSEEK_API_KEY` (required) and `NTFY_TOPIC` (optional, see below).
+4. Seed it from your existing data and turn the local daily job off (the Action replaces it):
+   ```sh
+   ./data-git remote add origin git@github.com:YOU/arxiv-daily-data.git
+   ./data-git add -f .github && ./data-git commit -m "Add workflow" && ./data-git push -u origin main
+   ./launchd/install.sh --no-daily
+   ```
+5. Run it once from the repo's *Actions* tab (*arxiv-daily > Run workflow*) and check the run summary.
+
+From then on the Action runs Monday to Friday at 06:30 UTC, after arXiv's feed rolls over (04:00 UTC in summer, 05:00 in
+winter). Your Mac syncs the data repo automatically (on every commit it makes, and every 15 minutes while the page
+server runs); `./run.sh sync` does it by hand. The digest is also shown in each run's summary, and GitHub emails you if
+a run fails. To get a push on your phone when a digest is ready, install the [ntfy](https://ntfy.sh) app, subscribe to
+a long random topic name, and store that name as the `NTFY_TOPIC` secret (anyone who knows the topic can read it).
+Cost: roughly 3-5 Actions minutes a day, well inside the free allowance for private repos, plus your API usage.
+
 ## Commands
 ```sh
 ./run.sh                          # full daily run
@@ -103,6 +129,7 @@ own private remote to it if you want a backup:
 ./run.sh zotero <arxiv-id>        # save to Zotero (+ Obsidian note)
 ./run.sh obsidian <arxiv-id>      # (re)create the Obsidian note for a paper
 ./run.sh serve                    # the page server (launchd runs this for you)
+./run.sh sync                     # pull/push the private data repo (digests from the Action, your feedback)
 ./run.sh status                   # memory / feedback / dedup summary
 ```
 Feedback can also be typed into a note's `feedback:` frontmatter field; it is picked up on the next run.
@@ -117,7 +144,8 @@ and topic-to-folder rules, and the helper's port. Interests are deliberately **n
 ```
 arxiv_daily/        the package: fetch, read, memory, output, html, server, zotero, obsidian, notify, gitops, llm
 examples/           interests.md template, copied to memory/ on first run
-launchd/install.sh  installs the daily job and the page server
+launchd/install.sh  installs the daily job and the page server (--no-daily when the Action does the daily run)
+examples/github-action/daily.yml   the workflow for your private data repo
 data-git            git for your private data repo
 CLAUDE.md           notes for Claude Code sessions working in this repo
 

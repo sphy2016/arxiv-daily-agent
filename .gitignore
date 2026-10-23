@@ -8,3 +8,4 @@ config.local.toml
 logs/
 __pycache__/
 .DS_Store
+.github/

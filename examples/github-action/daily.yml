@@ -1,0 +1,67 @@
+# Runs arxiv-daily on GitHub's servers. Put this file in YOUR PRIVATE data repo at .github/workflows/daily.yml.
+# Setup: see "Run it on GitHub Actions" in the code repo's README.
+#   Secrets (Settings > Secrets and variables > Actions): DEEPSEEK_API_KEY (required), NTFY_TOPIC (optional push).
+name: arxiv-daily
+
+on:
+  schedule:
+    # arXiv's RSS rolls over at 00:00 US Eastern (04:00 UTC in summer, 05:00 UTC in winter), Monday to Friday.
+    - cron: "30 6 * * 1-5"
+  workflow_dispatch:        # lets you run it by hand from the Actions tab
+
+concurrency:
+  group: arxiv-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: write           # the run commits notes and digests back to this repo
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out your data (this private repo)
+        uses: actions/checkout@v4
+        with:
+          path: data
+
+      - name: Check out the code
+        uses: actions/checkout@v4
+        with:
+          repository: YOUR_GITHUB_USER/arxiv-daily-agent
+          path: code
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install poppler (PDF fallback for papers without an arXiv HTML version)
+        run: sudo apt-get install -y --no-install-recommends poppler-utils
+
+      - name: Run the pipeline
+        working-directory: code
+        env:
+          ARXIV_DAILY_DATA: ${{ github.workspace }}/data
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          git config --global user.name "arxiv-daily[bot]"
+          git config --global user.email "actions@users.noreply.github.com"
+          python -m arxiv_daily run
+
+      - name: Push the results
+        if: always()
+        working-directory: data
+        run: |
+          for i in 1 2 3; do
+            git pull --rebase -q origin main && git push -q origin main && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - name: Show the latest digest in the run summary
+        if: success()
+        run: |
+          f=$(ls data/digests/*.md 2>/dev/null | tail -1)
+          if [ -n "$f" ]; then echo "_Latest digest: $(basename "$f")_" >> "$GITHUB_STEP_SUMMARY"; cat "$f" >> "$GITHUB_STEP_SUMMARY"; fi
