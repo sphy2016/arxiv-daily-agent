@@ -1,0 +1,10 @@
+# Your data lives in a separate private repo (.git-data, see arxiv_daily/gitops.py): never in this one.
+.git-data/
+memory/
+papers/
+digests/
+state/
+config.local.toml
+logs/
+__pycache__/
+.DS_Store

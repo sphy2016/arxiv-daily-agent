@@ -1,0 +1,40 @@
+# arxiv-daily pipeline settings. Interests live in memory/interests.md, not here.
+
+[run]
+prefilter_min = 3        # minimum keyword score for a paper to reach Claude
+max_candidates = 40      # most abstracts sent to Claude for scoring each day
+flag_threshold = 5       # Claude score >= this: listed in the digest
+read_threshold = 7       # Claude score >= this: full text read and a paper note written
+max_reads = 6            # cap on full-text reads per day
+parallel_reads = 3
+
+[models]                 # any value accepted by `claude --model`
+score = "sonnet"
+read = "opus"
+memory = "opus"
+
+[memory]
+consolidate_weekday = 0  # 0 = Monday: weekly interest consolidation if there is new feedback
+consolidate_after = 15   # ...or sooner, once this many unconsolidated feedback entries exist
+feedback_context = 30    # recent feedback entries shown to the scorer for calibration
+
+[notify]
+enabled = true
+
+[zotero]
+collection = "ArXiv"     # Zotero collection to file papers into ("" = whatever is selected in Zotero)
+tags = ["arxiv-daily"]
+attach_pdf = true
+
+[server]
+port = 8765              # local helper serving the digest pages: http://127.0.0.1:8765
+
+[obsidian]
+enabled = false          # set true (in config.local.toml) to also write a note per paper saved to Zotero
+vault = "~/Documents/Obsidian"   # your vault path; override in config.local.toml
+folder = "Notes/Paper"
+default_topic = "arXiv"  # subfolder when no topic rule matches
+
+[obsidian.topics]        # subfolder = regex over title + tags; first match wins
+"LyC" = 'lyman[- ]continuum|\bLyC\b|escape fraction|f_?esc|leaker'
+"Deep Field" = 'deep field|\bXDF\b|\bHUDF\b'

@@ -1,0 +1,4 @@
+#!/bin/zsh
+# Git for your private data repo (memory, notes, digests). Example: ./data-git log -p memory/interests.md
+R="${0:A:h}"
+exec git --git-dir "$R/.git-data" --work-tree "$R" "$@"

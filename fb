@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Usage: ./fb <arxiv-id> +|- [note...]
+exec "${0:A:h}/run.sh" fb "$@"
