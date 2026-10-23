@@ -1,4 +1,4 @@
-"""Read step: Claude scores the candidate abstracts, then reads the full text of the best ones."""
+"""Read step: the LLM scores the candidate abstracts, then reads the full text of the best ones."""
 import json
 import shutil
 
@@ -76,19 +76,19 @@ def score(cands: list[Paper], interests: str, feedback: str, model: str) -> dict
     payload = json.dumps([{"id": p.id, "title": p.title, "authors": p.authors[:8],
                            "abstract": p.abstract} for p in cands], ensure_ascii=False)
     out = llm.ask(SCORE_PROMPT.format(interests=interests, feedback=feedback, papers=payload),
-                  SCORE_SCHEMA, model, timeout=600)
+                  SCORE_SCHEMA, model)
     return {s["id"]: s for s in out["papers"]}
 
 
-def read_paper(p: Paper, interests: str, model: str) -> tuple[dict, str]:
+def read_paper(p: Paper, interests: str, model: str, max_chars: int) -> tuple[dict, str]:
     """Returns (note fields, source) where source is 'html', 'pdf' or 'abstract'."""
     fmt = dict(interests=interests, id=p.id, title=p.title, authors=", ".join(p.authors))
-    text, source = fetch_fulltext(p.id), "html"
+    text, source = fetch_fulltext(p.id, max_chars), "html"
     if not text:
         workdir = STATE / "cache" / p.id
         workdir.mkdir(parents=True, exist_ok=True)
         try:
-            text, source = fetch_pdf_text(p.id, workdir), "pdf"
+            text, source = fetch_pdf_text(p.id, workdir, max_chars), "pdf"
         except Exception:
             text = None
         finally:

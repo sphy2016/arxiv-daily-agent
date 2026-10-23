@@ -6,7 +6,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
-from . import DIGESTS, LOGS, STATE, gitops, html, load_config, memory, obsidian, server, zotero
+from . import DIGESTS, LOGS, STATE, gitops, html, llm, load_config, memory, obsidian, server, zotero
 from .fetch import fetch_announcements, prefilter
 from .notify import notify
 from .output import write_digest, write_note
@@ -78,7 +78,7 @@ def cmd_run(args, cfg):
     def _read(item):
         p, s = item
         try:
-            note, src = read_paper(p, interests, models["read"])
+            note, src = read_paper(p, interests, models["read"], run["max_fulltext_chars"])
             return p, s, note, write_note(p, day, s, note, src)
         except Exception as e:
             log.warning("reading %s failed: %s", p.id, e)
@@ -96,6 +96,7 @@ def cmd_run(args, cfg):
     _save_seen(seen)
     gitops.commit(f"digest {day}: {len(read)} read, {len(flagged)} flagged")
     log.info("wrote %s", digest)
+    log.info("usage: %s", llm.usage_summary())
 
     if cfg["notify"]["enabled"] and (read or flagged):
         top = read[0][0].title if read else flagged[0][0].title
@@ -145,6 +146,29 @@ def cmd_serve(args, cfg):
     server.serve(cfg)
 
 
+def cmd_llm_test(args, cfg):
+    """Check the LLM connection end to end: key, endpoint, model names, and one tiny JSON round trip."""
+    c = cfg["llm"]
+    print(f"provider: {c['provider']}  base_url: {c['base_url']}  models: {cfg['models']}")
+    if c["provider"] == "openai-compatible":
+        print(f"api key: {llm.key_source(c)}")
+        try:
+            names = llm.list_models(c)
+            print("endpoint lists:", ", ".join(names[:12]) or "(nothing)")
+            missing = {m for m in cfg["models"].values() if names and m not in names}
+            if missing:
+                print(f"WARNING: not in that list: {', '.join(sorted(missing))}. Fix [models] in config.toml.")
+        except Exception as e:
+            print(f"(could not list models: {e})")
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}, "sum": {"type": "integer"}},
+              "required": ["ok", "sum"]}
+    out = llm.ask("Return ok=true and sum = 2 + 3.", schema, cfg["models"]["score"])
+    print("round trip:", out, "| " + llm.usage_summary())
+    if out.get("sum") != 5:
+        sys.exit("the model answered, but not correctly. Try another model.")
+    print("OK")
+
+
 def cmd_status(args, cfg):
     p = memory.load_profile()
     fb = memory.load_feedback()
@@ -158,7 +182,7 @@ def main():
     ap = argparse.ArgumentParser(prog="arxiv_daily")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="find -> read -> write -> commit -> notify")
-    r.add_argument("--dry-run", action="store_true", help="only show keyword candidates; no Claude, no writes")
+    r.add_argument("--dry-run", action="store_true", help="only show keyword candidates; no LLM calls, no writes")
     f = sub.add_parser("fb", help="rate a paper: fb <id> +|- [note...]")
     f.add_argument("id"), f.add_argument("rating"), f.add_argument("note", nargs="*")
     i = sub.add_parser("interest", help='tell memory about a change: interest "now also into X"')
@@ -169,6 +193,7 @@ def main():
     sub.add_parser("serve", help="run the local helper behind the digest pages")
     o = sub.add_parser("obsidian", help="write the Obsidian note for a paper: obsidian <id>")
     o.add_argument("id")
+    sub.add_parser("llm-test", help="check the LLM endpoint, key and model names")
     sub.add_parser("status")
     args = ap.parse_args()
 
@@ -176,7 +201,7 @@ def main():
     cfg = load_config()
     try:
         {"run": cmd_run, "fb": cmd_fb, "interest": cmd_interest,
-         "consolidate": cmd_consolidate, "status": cmd_status, "zotero": cmd_zotero, "serve": cmd_serve, "obsidian": cmd_obsidian}[args.cmd](args, cfg)
+         "consolidate": cmd_consolidate, "status": cmd_status, "zotero": cmd_zotero, "serve": cmd_serve, "obsidian": cmd_obsidian, "llm-test": cmd_llm_test}[args.cmd](args, cfg)
     except Exception as e:
         log.exception("%s failed", args.cmd)
         if args.cmd == "run" and cfg["notify"]["enabled"]:

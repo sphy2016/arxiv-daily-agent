@@ -18,7 +18,7 @@ if [[ "$1" == "--uninstall" ]]; then
   exit 0
 fi
 PYDIR="$(dirname "$(command -v python3)")"
-CLAUDEDIR="$(dirname "$(command -v claude)")"
+CLAUDEDIR="$(dirname "$(command -v claude 2>/dev/null || echo /usr/local/bin/claude)")"  # only matters for provider = "claude-code"
 mkdir -p "$ROOT/logs" "$HOME/Library/LaunchAgents"
 cat > "$PLIST" <<PL
 <?xml version="1.0" encoding="UTF-8"?>

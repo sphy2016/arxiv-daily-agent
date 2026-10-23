@@ -147,7 +147,7 @@ Rules:
 
 
 def update_interests(kind: str, payload: str, model: str) -> tuple[bool, str]:
-    """Ask Claude to revise interests.md; validate before writing. Returns (changed, changelog)."""
+    """Ask the LLM to revise interests.md; validate before writing. Returns (changed, changelog)."""
     out = llm.ask(UPDATE_PROMPT.format(interests=interests_text(), kind=kind, payload=payload),
                   UPDATE_SCHEMA, model)
     new = out["interests_md"].rstrip() + "\n"

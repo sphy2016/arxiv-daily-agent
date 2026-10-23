@@ -6,12 +6,23 @@ max_candidates = 40      # most abstracts sent to Claude for scoring each day
 flag_threshold = 5       # Claude score >= this: listed in the digest
 read_threshold = 7       # Claude score >= this: full text read and a paper note written
 max_reads = 6            # cap on full-text reads per day
+max_fulltext_chars = 100000  # paper text sent to the model (~25k tokens); fits 64k-context models
 parallel_reads = 3
 
-[models]                 # any value accepted by `claude --model`
-score = "sonnet"
-read = "opus"
-memory = "opus"
+[llm]
+provider = "openai-compatible"   # or "claude-code" (then set [models] to sonnet/opus)
+base_url = "https://api.deepseek.com"   # any OpenAI-style endpoint, e.g. "https://openrouter.ai/api/v1"
+api_key_env = "DEEPSEEK_API_KEY"
+api_key_file = "~/.config/arxiv-daily/api_key"   # used when the env var is unset (scheduled jobs need this)
+json_mode = "json_object"        # "json_object" or "off" if the endpoint rejects response_format
+max_tokens = 8000
+temperature = 0.3
+timeout = 600
+
+[models]                 # names as the endpoint expects them; verify with ./run.sh llm-test
+score = "deepseek-chat"
+read = "deepseek-chat"
+memory = "deepseek-chat"
 
 [memory]
 consolidate_weekday = 0  # 0 = Monday: weekly interest consolidation if there is new feedback

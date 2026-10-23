@@ -59,7 +59,7 @@ def inline(s: str) -> str:
 
 
 def blocks(s: str) -> str:
-    """Paragraphs and '- ' bullet lists, as Claude tends to write them."""
+    """Paragraphs and '- ' bullet lists, as models tend to write them."""
     out, items = [], []
     for line in s.splitlines() + [""]:
         t = line.strip()

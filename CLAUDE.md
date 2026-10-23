@@ -1,7 +1,7 @@
 # arxiv-daily: notes for Claude sessions in this repo
 
 Personal arXiv watcher for an astronomer (high-z galaxies, reionization, LyC/Lyα, galaxy assembly, survey data releases).
-The pipeline is `python3 -m arxiv_daily run` (see README.md). The headless `claude -p` calls are in `arxiv_daily/llm.py`.
+The pipeline is `python3 -m arxiv_daily run` (see README.md). All LLM calls go through `arxiv_daily/llm.py` (`ask(prompt, schema, model)`; OpenAI-compatible API by default).
 
 - When the user tells you their interests changed, update `memory/interests.md`. Keep the section structure, never drop
   *Pinned* items unless explicitly asked, and keep the ```toml profile block valid. Its keys are single-quoted regex literals.
