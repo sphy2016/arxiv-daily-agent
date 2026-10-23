@@ -37,7 +37,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install poppler (PDF fallback for papers without an arXiv HTML version)
-        run: sudo apt-get install -y --no-install-recommends poppler-utils
+        continue-on-error: true   # only a fallback: a failed install must not stop the run
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends poppler-utils
 
       - name: Run the pipeline
         working-directory: code

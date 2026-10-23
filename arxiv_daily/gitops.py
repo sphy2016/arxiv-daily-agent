@@ -29,8 +29,21 @@ def _ensure_repo():
         git("config", "core.bare", "false")
 
 
+def _url(cmd: list[str], cwd) -> str:
+    r = subprocess.run([*cmd, "remote", "get-url", "origin"], cwd=cwd, capture_output=True, text=True)
+    return r.stdout.strip().removesuffix(".git").lower() if r.returncode == 0 else ""
+
+
 def has_remote() -> bool:
-    return git("remote", "get-url", "origin").returncode == 0
+    """True if the data repo has an origin that is NOT the public code repo (never publish data there)."""
+    url = _url(["git", "--git-dir", str(GIT_DIR), "--work-tree", str(DATA)] if not SEPARATE else ["git"], DATA)
+    if not url:
+        return False
+    if not SEPARATE and url == _url(["git"], ROOT):
+        log.warning("data repo's origin is the same as the code repo's (%s): refusing to sync. "
+                    "Point it at your PRIVATE data repo: ./data-git remote set-url origin <url>", url)
+        return False
+    return True
 
 
 def sync() -> bool:

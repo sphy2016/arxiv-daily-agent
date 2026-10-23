@@ -105,10 +105,14 @@ Your Mac then pulls them for the local page, Zotero and Obsidian (those need you
    `DEEPSEEK_API_KEY` (required) and `NTFY_TOPIC` (optional, see below).
 4. Seed it from your existing data and turn the local daily job off (the Action replaces it):
    ```sh
-   ./data-git remote add origin git@github.com:YOU/arxiv-daily-data.git
+   ./data-git remote -v             # must be empty or your PRIVATE repo; never the public code repo
+   ./data-git remote add origin git@github.com:YOU/arxiv-daily-data.git   # or: remote set-url origin <url>
+   mkdir -p .github/workflows && cp examples/github-action/daily.yml .github/workflows/
+   $EDITOR .github/workflows/daily.yml    # put your GitHub user name in the repository: line
    ./data-git add -f .github && ./data-git commit -m "Add workflow" && ./data-git push -u origin main
    ./launchd/install.sh --no-daily
    ```
+   (Syncing refuses to run if the data repo's `origin` equals the code repo's, so your data can't reach the public repo.)
 5. Run it once from the repo's *Actions* tab (*arxiv-daily > Run workflow*) and check the run summary.
 
 From then on the Action runs Monday to Friday at 06:30 UTC, after arXiv's feed rolls over (04:00 UTC in summer, 05:00 in
